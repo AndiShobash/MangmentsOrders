@@ -1,5 +1,7 @@
 package com.productservice.orderservice.service;
 
+import brave.Span;
+import brave.Tracer;
 import com.productservice.orderservice.dto.InventoryResponse;
 import com.productservice.orderservice.dto.OrderLineItemsDto;
 import com.productservice.orderservice.dto.OrderRequest;
@@ -24,7 +26,7 @@ public class OrderService {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
-    public void placeOrder(OrderRequest orderRequest) {
+    public String placeOrder(OrderRequest orderRequest) {
         Order order = new Order();
         order.setOrderNumber(UUID.randomUUID().toString());
         List<OrderLineItems> orderLineItems = orderRequest.getOrderLineItemsDtoList()
@@ -33,12 +35,14 @@ public class OrderService {
                 .toList();
 
         order.setOrderLineItemsList(orderLineItems);
-        System.out.println("Hi!");
+
 
         List<String> skuCodes = order.getOrderLineItemsList()
                 .stream()
                 .map(OrderLineItems::getSkuCode)
                 .toList();
+
+        System.out.println("Calling inventory service");
         //Call Inventory Service, and place order if product is in stock
         InventoryResponse[] inventoryResponsesArray = webClientBuilder.build().get()
                 .uri("http://inventory-service/api/inventory",
@@ -52,6 +56,7 @@ public class OrderService {
 
         if (allProductsInStock) {
             orderRepository.save(order);
+            return "Order Placed Successfully";
         } else {
             throw new IllegalArgumentException("Product is not is stock, please try again later");
         }
